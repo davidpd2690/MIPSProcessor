@@ -32,7 +32,8 @@ localparam OR  = 	4'b0001;
 localparam NOR = 	4'b0010;
 localparam ADD = 	4'b0011;
 localparam SUB = 	4'b0100;
-localparam SHIFT = 	4'b1110;
+localparam SHIFTL = 	4'b1110;
+localparam SHIFTR = 	4'b1100;
    
    always @ (A or B or ALUOperation or shamt)
      begin
@@ -44,8 +45,10 @@ localparam SHIFT = 	4'b1110;
 		ALUResult = A | B;
 		NOR:
 		ALUResult = ~(A|B);
-		SHIFT:
+		SHIFTL:
 		ALUResult = A<<shamt;
+		SHIFTR:
+		ALUResult = A>>shamt;
 			
 		ADD: // add
 		ALUResult=A + B;
