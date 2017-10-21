@@ -47,6 +47,7 @@ assign  PortOut = 0;
 //******************************************************************/
 // Data types to connect modules
 wire Lui_wire;
+wire Branch;
 wire BranchNE_wire;
 wire BranchEQ_wire;
 wire RegDst_wire;
@@ -59,6 +60,8 @@ wire Zero_wire;
 wire [2:0] ALUOp_wire;
 wire [3:0] ALUOperation_wire;
 wire [4:0] WriteRegister_wire;
+wire [31:0] BranchAddress_wire;
+wire [31:0] MUX_Branch_wire;
 wire [31:0] MUX_PC_wire;
 wire [31:0] PC_wire;
 wire [31:0] Instruction_wire;
@@ -68,6 +71,7 @@ wire [31:0] InmmediateExtend_wire;
 wire [31:0] ReadData2OrInmmediate_wire;
 wire [31:0] ALUResult_wire;
 wire [31:0] PC_4_wire;
+wire [31:0] BranchAdderOutput_wire;
 wire [31:0] InmmediateExtendAnded_wire;
 wire [31:0] PCtoBranch_wire;
 wire [31:0] LuiOutput_wire;
@@ -129,12 +133,42 @@ PC_Puls_4
 	.Result(PC_4_wire)
 );
 
+Adder32bits
+AdderForBranches
+(
+	.Data0(PC_4_wire),
+	.Data1(BranchAddress_wire),
+	
+	.Result(BranchAdderOutput_wire)
+);
+
+ShiftLeft2
+BranchAddressShifter 
+(   
+	.DataInput(InmmediateExtend_wire),
+   .DataOutput(BranchAddress_wire)
+
+);
+
 
 //******************************************************************/
 //******************************************************************/
 //******************************************************************/
 //******************************************************************/
 //******************************************************************/
+Multiplexer2to1
+#(
+	.NBits(5)
+)
+MUX_Branch
+(
+	.Selector(Branch),
+	.MUX_Data0(PC_4_wire),
+	.MUX_Data1(BranchAdderOutput_wire),
+	.MUX_Output(MUX_Branch_wire)
+
+);
+
 Multiplexer2to1
 #(
 	.NBits(5)
@@ -228,10 +262,13 @@ ArithmeticLogicUnit
 	.A(ReadData1_wire),
 	.B(ReadData2OrInmmediate_wire),
 	.Zero(Zero_wire),
-	.ALUResult(ALUResult_wire)
+	.ALUResult(ALUResult_wire),
+	.shamt(Instruction_wire[10:6])
 );
 
 assign ALUResultOut = ALUResult_wire;
+
+assign Branch = (BranchNE_wire & ~(Zero_wire)| BranchEQ_wire & Zero_wire);
 
 
 endmodule
