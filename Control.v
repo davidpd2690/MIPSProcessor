@@ -15,6 +15,7 @@ module Control
 (
 	input [5:0]OP,
 	
+	output Jump,
 	output Lui,
 	output RegDst,
 	output BranchEQ,
@@ -28,36 +29,50 @@ module Control
 );
 localparam R_Type = 0;
 
-
 localparam I_Type_ADDI = 6'h8;
 localparam I_Type_ORI = 6'h0d;
 localparam I_Type_LUI = 6'h0f;
+localparam I_Type_BEQ = 6'h04;
+localparam I_Type_BNE = 6'h05;
+localparam I_Type_LW = 6'h23;
+localparam I_Type_SW = 6'h2b;
+localparam J_Type_Jump = 6'h02;
 
 
-reg [11:0] ControlValues;
+reg [12:0] ControlValues;
 
 always@(OP) begin
 	casex(OP)
-		R_Type:       	ControlValues = 12'b0_1_001_00_00_111;
-		I_Type_ADDI: 	ControlValues = 12'b0_0_101_00_00_100;
-		I_Type_ORI: 	ControlValues = 12'b0_0_101_00_00_101;
-		I_Type_LUI: 	ControlValues = 12'b1_0_001_00_00_000;
+		R_Type:       	ControlValues = 13'b0_0_1_001_00_00_111;
+		I_Type_ADDI: 	ControlValues = 13'b0_0_0_101_00_00_100;
+		I_Type_ORI: 	ControlValues = 13'b0_0_0_101_00_00_101;
+		I_Type_LUI: 	ControlValues = 13'b0_1_0_001_00_00_000;
+		I_Type_BEQ: 	ControlValues = 13'b0_0_0_000_00_01_010;
+		I_Type_BNE: 	ControlValues = 13'b0_0_0_000_00_10_010;
+		I_Type_LW: 		ControlValues = 13'b0_0_0_111_10_00_100;//100 igual que addi para que sume
+		I_Type_SW: 		ControlValues = 13'b0_0_0_100_01_00_100;
 		
+		J_Type_Jump: 	ControlValues = 13'b1_0_0_000_00_00_000;
 		
 		default:
 			ControlValues= 10'b0000000000;
 		endcase
 end	
-	
+assign Jump = ControlValues[12];	
+
 assign Lui = ControlValues[11];	
 assign RegDst = ControlValues[10];
+
 assign ALUSrc = ControlValues[9];
 assign MemtoReg = ControlValues[8];
 assign RegWrite = ControlValues[7];
+
 assign MemRead = ControlValues[6];
 assign MemWrite = ControlValues[5];
+
 assign BranchNE = ControlValues[4];
 assign BranchEQ = ControlValues[3];
+
 assign ALUOp = ControlValues[2:0];	
 
 endmodule

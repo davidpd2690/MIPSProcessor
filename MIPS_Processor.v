@@ -46,6 +46,10 @@ assign  PortOut = 0;
 //******************************************************************/
 //******************************************************************/
 // Data types to connect modules
+wire Jump_wire;
+wire MemRead_wire;
+wire MemWrite_wire;
+wire MemToReg_wire;
 wire Lui_wire;
 wire Branch;
 wire BranchNE_wire;
@@ -61,7 +65,7 @@ wire [2:0] ALUOp_wire;
 wire [3:0] ALUOperation_wire;
 wire [4:0] WriteRegister_wire;
 wire [31:0] BranchAddress_wire;
-wire [31:0] MUX_Branch_wire;
+wire [31:0] MUX_BranchOutput_wire;
 wire [31:0] MUX_PC_wire;
 wire [31:0] PC_wire;
 wire [31:0] Instruction_wire;
@@ -76,6 +80,11 @@ wire [31:0] InmmediateExtendAnded_wire;
 wire [31:0] PCtoBranch_wire;
 wire [31:0] LuiOutput_wire;
 wire [31:0] MuxLuiOutput_wire;
+wire [31:0] RAM_Addr_wire;
+wire [31:0] RAM_ReadData_wire;
+wire [31:0] RAMLUIALU_wire;
+wire [31:0] JumpAddress_wire;
+wire [31:0] NewPC_wire;
 integer ALUStatus;
 
 
@@ -94,7 +103,11 @@ ControlUnit
 	.ALUOp(ALUOp_wire),
 	.ALUSrc(ALUSrc_wire),
 	.RegWrite(RegWrite_wire),
-	.Lui(Lui_wire)
+	.Lui(Lui_wire),
+	.MemtoReg(MemToReg_wire),
+	.MemRead(MemRead_wire),
+	.MemWrite(MemWrite_wire),
+	.Jump(Jump_wire)
 );
  PC_Register
 #(
@@ -106,7 +119,7 @@ ControlUnit
 (
 	 .clk(clk),
 	 .reset(reset),
-	 .NewPC(PC_4_wire),
+	 .NewPC(NewPC_wire),
 	 .PCValue(PC_wire)
 );
 
@@ -158,14 +171,27 @@ BranchAddressShifter
 //******************************************************************/
 Multiplexer2to1
 #(
-	.NBits(5)
+	.NBits(32)
 )
 MUX_Branch
 (
 	.Selector(Branch),
 	.MUX_Data0(PC_4_wire),
 	.MUX_Data1(BranchAdderOutput_wire),
-	.MUX_Output(MUX_Branch_wire)
+	.MUX_Output(MUX_BranchOutput_wire)
+
+);
+
+Multiplexer2to1
+#(
+	.NBits(32)
+)
+MUX_Jumps
+(
+	.Selector(Jump_wire),
+	.MUX_Data0(MUX_BranchOutput_wire),
+	.MUX_Data1(JumpAddress_wire),
+	.MUX_Output(NewPC_wire)
 
 );
 
@@ -193,7 +219,7 @@ Register_File
 	.WriteRegister(WriteRegister_wire),
 	.ReadRegister1(Instruction_wire[25:21]),
 	.ReadRegister2(Instruction_wire[20:16]),
-	.WriteData(MuxLuiOutput_wire),
+	.WriteData(RAMLUIALU_wire),
 	.ReadData1(ReadData1_wire),
 	.ReadData2(ReadData2_wire)
 
@@ -227,6 +253,19 @@ MUX_Lui
 
 );
 
+Multiplexer2to1
+#(
+	.NBits(32)
+)
+MUX_RAM
+(
+	.Selector(MemToReg_wire),
+	.MUX_Data0(MuxLuiOutput_wire),
+	.MUX_Data1(RAM_ReadData_wire),
+	
+	.MUX_Output(RAMLUIALU_wire)
+
+);
 
 
 Multiplexer2to1
@@ -265,10 +304,28 @@ ArithmeticLogicUnit
 	.ALUResult(ALUResult_wire),
 	.shamt(Instruction_wire[10:6])
 );
+//////////////////////// RAM ////////////////////////////
+DataMemory 
+#(	.DATA_WIDTH(32),
+	.MEMORY_DEPTH(256)
+)
+RAM
+(
+	.WriteData(ReadData2_wire),
+	.Address(RAM_Addr_wire),
+	.MemWrite(MemWrite_wire),
+	.MemRead(MemRead_wire),
+	.clk(clk),
+	.ReadData(RAM_ReadData_wire)
+);
 
 assign ALUResultOut = ALUResult_wire;
 
-assign Branch = (BranchNE_wire & ~(Zero_wire)| BranchEQ_wire & Zero_wire);
+assign RAM_Addr_wire = {{24{1'b0}}, ALUResult_wire[9:2]};
+
+assign Branch = ((BranchNE_wire & ~(Zero_wire))| (BranchEQ_wire & Zero_wire));
+
+assign JumpAddress_wire = {{PC_4_wire[31:28],Instruction_wire[25:0], 2'b0}};
 
 
 endmodule
