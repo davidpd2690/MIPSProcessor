@@ -39,6 +39,7 @@ module MIPS_Processor
 	output [31:0] ALUResultOut,
 	output [31:0] PortOut
 );
+
 //******************************************************************/
 //******************************************************************/
 assign  PortOut = 0;
@@ -46,6 +47,7 @@ assign  PortOut = 0;
 //******************************************************************/
 //******************************************************************/
 // Data types to connect modules
+wire JALSelector_wire;
 wire Jump_wire;
 wire MemRead_wire;
 wire MemWrite_wire;
@@ -85,6 +87,8 @@ wire [31:0] RAM_ReadData_wire;
 wire [31:0] RAMLUIALU_wire;
 wire [31:0] JumpAddress_wire;
 wire [31:0] NewPC_wire;
+wire [31:0] JAL_wire;
+wire [31:0] MUX_JALOutput_wire;
 integer ALUStatus;
 
 
@@ -93,6 +97,11 @@ integer ALUStatus;
 //******************************************************************/
 //******************************************************************/
 //******************************************************************/
+
+
+
+////////////////// CONTROL UNIT //////////////////////////////////////
+
 Control
 ControlUnit
 (
@@ -109,6 +118,9 @@ ControlUnit
 	.MemWrite(MemWrite_wire),
 	.Jump(Jump_wire)
 );
+
+////////////////// PROGRAM COUNTER //////////////////////////////////////
+
  PC_Register
 #(
 	 .N(32)
@@ -123,7 +135,7 @@ ControlUnit
 	 .PCValue(PC_wire)
 );
 
-
+////////////////// ROM //////////////////////////////////////
 
 ProgramMemory
 #(
@@ -135,7 +147,7 @@ ROMProgramMemory
 	.Instruction(Instruction_wire)
 );
 
-
+////////////////// ADDERS //////////////////////////////////////
 
 Adder32bits
 PC_Puls_4
@@ -155,6 +167,8 @@ AdderForBranches
 	.Result(BranchAdderOutput_wire)
 );
 
+////////////////// LEFT SHIFTER //////////////////////////////////////
+
 ShiftLeft2
 BranchAddressShifter 
 (   
@@ -163,12 +177,22 @@ BranchAddressShifter
 
 );
 
+////////////////// MULTIPLEXERS //////////////////////////////////////
 
-//******************************************************************/
-//******************************************************************/
-//******************************************************************/
-//******************************************************************/
-//******************************************************************/
+Multiplexer2to1
+#(
+	.NBits(5)
+)
+MUX_ForRTypeAndIType
+(
+	.Selector(RegDst_wire),
+	.MUX_Data0(Instruction_wire[20:16]),
+	.MUX_Data1(Instruction_wire[15:11]),
+	
+	.MUX_Output(WriteRegister_wire)
+
+);
+
 Multiplexer2to1
 #(
 	.NBits(32)
@@ -186,6 +210,20 @@ Multiplexer2to1
 #(
 	.NBits(32)
 )
+MUX_JAL
+(
+	.Selector(JALSelector_wire),
+	.MUX_Data0(ReadData2OrInmmediate_wire),
+	.MUX_Data1(JAL_wire),
+	.MUX_Output(RegDst_wire)
+
+);
+
+
+Multiplexer2to1
+#(
+	.NBits(32)
+)
 MUX_Jumps
 (
 	.Selector(Jump_wire),
@@ -195,49 +233,6 @@ MUX_Jumps
 
 );
 
-Multiplexer2to1
-#(
-	.NBits(5)
-)
-MUX_ForRTypeAndIType
-(
-	.Selector(RegDst_wire),
-	.MUX_Data0(Instruction_wire[20:16]),
-	.MUX_Data1(Instruction_wire[15:11]),
-	
-	.MUX_Output(WriteRegister_wire)
-
-);
-
-
-RegisterFile
-Register_File
-(
-	.clk(clk),
-	.reset(reset),
-	.RegWrite(RegWrite_wire),
-	.WriteRegister(WriteRegister_wire),
-	.ReadRegister1(Instruction_wire[25:21]),
-	.ReadRegister2(Instruction_wire[20:16]),
-	.WriteData(RAMLUIALU_wire),
-	.ReadData1(ReadData1_wire),
-	.ReadData2(ReadData2_wire)
-
-);
-
-SignExtend
-SignExtendForConstants
-(   
-	.DataInput(Instruction_wire[15:0]),
-   .SignExtendOutput(InmmediateExtend_wire)
-);
-
-LuiModule
-Lui
-(   
-	.DataInput(Instruction_wire[15:0]),
-   .LuiOutput(LuiOutput_wire)
-);
 
 Multiplexer2to1
 #(
@@ -282,6 +277,42 @@ MUX_ForReadDataAndInmediate
 
 );
 
+////////////////// REGISTER FILE //////////////////////////////////////
+
+RegisterFile
+Register_File
+(
+	.clk(clk),
+	.reset(reset),
+	.RegWrite(RegWrite_wire),
+	.WriteRegister(MUX_JALOutput_wire),
+	.ReadRegister1(Instruction_wire[25:21]),
+	.ReadRegister2(Instruction_wire[20:16]),
+	.WriteData(RAMLUIALU_wire),
+	.ReadData1(ReadData1_wire),
+	.ReadData2(ReadData2_wire)
+
+);
+
+////////////////// SIGN EXTEND //////////////////////////////////////
+
+SignExtend
+SignExtendForConstants
+(   
+	.DataInput(Instruction_wire[15:0]),
+   .SignExtendOutput(InmmediateExtend_wire)
+);
+
+////////////////// LUI //////////////////////////////////////
+
+LuiModule
+Lui
+(   
+	.DataInput(Instruction_wire[15:0]),
+   .LuiOutput(LuiOutput_wire)
+);
+
+////////////////// ALU / ALU CONTROL //////////////////////////////////////
 
 ALUControl
 ArithmeticLogicUnitControl
@@ -291,8 +322,6 @@ ArithmeticLogicUnitControl
 	.ALUOperation(ALUOperation_wire)
 
 );
-
-
 
 ALU
 ArithmeticLogicUnit 
@@ -304,7 +333,9 @@ ArithmeticLogicUnit
 	.ALUResult(ALUResult_wire),
 	.shamt(Instruction_wire[10:6])
 );
+
 //////////////////////// RAM ////////////////////////////
+
 DataMemory 
 #(	.DATA_WIDTH(32),
 	.MEMORY_DEPTH(256)
@@ -319,6 +350,8 @@ RAM
 	.ReadData(RAM_ReadData_wire)
 );
 
+/////////////////////////////////////////////////////////////////////////////
+
 assign ALUResultOut = ALUResult_wire;
 
 assign RAM_Addr_wire = {{24{1'b0}}, ALUResult_wire[9:2]};
@@ -327,6 +360,9 @@ assign Branch = ((BranchNE_wire & ~(Zero_wire))| (BranchEQ_wire & Zero_wire));
 
 assign JumpAddress_wire = {{PC_4_wire[31:28],Instruction_wire[25:0], 2'b0}};
 
+assign JAL_wire = 'd 31;
+
+//assign JALSelector_wire = 
 
 endmodule
 

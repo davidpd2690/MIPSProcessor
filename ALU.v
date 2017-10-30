@@ -34,6 +34,7 @@ localparam ADD = 	4'b0011;
 localparam SUB = 	4'b0100;
 localparam SLL = 	4'b1110;
 localparam SRL = 	4'b1100;
+localparam JR = 	4'b1101;
    
    always @ (A or B or ALUOperation or shamt)
      begin
@@ -54,6 +55,9 @@ localparam SRL = 	4'b1100;
 		ALUResult=A + B;
 		SUB: // sub
 		ALUResult=A - B;
+		
+		JR:
+		ALUResult={{27{1'b0}},{A[25:21]}};
 
 		default:
 			ALUResult= 0;
