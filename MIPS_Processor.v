@@ -218,7 +218,9 @@ ControlUnit
 
 	.Jump(Jump_wire),
 	
-	.Jal(Jal_wire)
+	.Jal(Jal_wire),
+	
+	.JR(JR_wire)
 	
 );
 //////////// PROGRAM COUNTER //////////////////////////
@@ -228,12 +230,9 @@ ControlUnit
 
 	 .N(32)
 
-	 
-
  )
 
  
-
  programCounter
 
 (
@@ -242,16 +241,11 @@ ControlUnit
 
 	 .reset(reset),
 
-	 .NewPC(NewPC_wire),
+	 .NewPC(NewPCJROutput_wire),
 
 	 .PCValue(PC_wire)
 
 );
-
-
-
-
-
 
 
 ProgramMemory
