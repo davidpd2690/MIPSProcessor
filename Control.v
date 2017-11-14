@@ -19,15 +19,15 @@ module Control
 	output Jal,
 	output Jump,
 	output Lui,
-	output RegDst,
-	output BranchEQ,
-	output BranchNE,
-	output MemRead,
-	output MemtoReg,
-	output MemWrite,
-	output ALUSrc,
-	output RegWrite,
-	output [2:0]ALUOp
+	output RegDst,			//EX
+	output BranchEQ,		//M
+	output BranchNE,		//M
+	output MemRead,		//M
+	output MemtoReg,		//WB
+	output MemWrite,		//M
+	output ALUSrc,			//EX
+	output RegWrite,		//WB
+	output [2:0]ALUOp		//EX
 );
 localparam R_Type = 0;
 //localparam R_Type_JR = 6'h08;

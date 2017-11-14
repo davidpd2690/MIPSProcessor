@@ -19,7 +19,6 @@ module Register_pipe
 	input enable,
 	input  [N-1:0] DataInput,
 	
-	
 	output reg [N-1:0] DataOutput
 );
 
