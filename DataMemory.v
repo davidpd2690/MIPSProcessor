@@ -25,6 +25,16 @@ module DataMemory
 	// Declare the RAM variable
 	reg [DATA_WIDTH-1:0] ram[MEMORY_DEPTH-1:0];
 	wire [DATA_WIDTH-1:0] ReadDataAux;
+	
+	/*initial
+	begin
+		$readmemh("C:/MIPSProjects/MIPSProcessor_ver1/Sources/text.dat", rom);
+	end
+
+	always @ (RealAddress)
+	begin
+		Instruction = rom[RealAddress];
+	end*/
 
 	always @ (posedge clk)
 	begin
