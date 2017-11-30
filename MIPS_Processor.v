@@ -67,6 +67,9 @@ wire ALUSrc_wire;
 wire RegWrite_wire;
 wire Zero_wire;
 
+wire [1:0]ForwardA_wire;
+wire [1:0]ForwardB_wire;
+
 wire [3:0] ALUOperation_wire;
 
 wire [4:0] WriteRegister_wire;
@@ -96,6 +99,8 @@ wire [31:0] JumpAddress_wire;
 wire [31:0] NewPC_wire;
 wire [31:0] DATA_PC4Output_wire;
 wire [31:0] NewPCJROutput_wire;
+wire [31:0] MUX_FwdA_Output_wire;
+wire [31:0] MUX_FwdB_Output_wire;
 
 integer ALUStatus;
 
@@ -129,10 +134,11 @@ wire [31:0] IDEX_Instruction_wire;
 
 wire [31:0]EXMEM_BranchAdderOutput_wire; 
 wire [31:0]EXMEM_ALUResult_wire;  
-wire [31:0]EXMEM_ReadData2_wire;
+//wire [31:0]EXMEM_ReadData2_wire;
 wire [31:0]EXMEM_ReadData1_wire;
 wire [31:0]EXMEM_LuiOutput_wire;
 wire [31:0]EXMEM_PC_4_wire;
+wire [31:0]EXMEM_MUX_FwdB_Output_wire;
 
 wire [4:0] EXMEM_WriteRegister_wire; 
 
@@ -211,6 +217,8 @@ ROMProgramMemory
 
 /////////////////// PIPE REGISTERS //////////////////////////////////////////////////////////////////
 
+
+/////////////////////// IFID *******************
 Register_pipe
 #(
 	.N(64)
@@ -290,7 +298,7 @@ Register_pipe
 	.DataInput({BranchAdderOutput_wire,		//32
 					LuiOutput_wire, 				//32
 					ALUResult_wire, 				//32
-					IDEX_ReadData2_wire,			//32
+					MUX_FwdB_Output_wire,		//32
 					IDEX_PC_4_wire,				//32
 					WriteRegister_wire, 			//5
 					Zero_wire, 						//1
@@ -306,7 +314,7 @@ Register_pipe
 	.DataOutput({EXMEM_BranchAdderOutput_wire,
 					 EXMEM_LuiOutput_wire,	
 					 EXMEM_ALUResult_wire, 
-					 EXMEM_ReadData2_wire,
+					 EXMEM_MUX_FwdB_Output_wire,
 					 EXMEM_PC_4_wire,
 					 EXMEM_WriteRegister_wire,
 					 EXMEM_Zero_wire, 
@@ -524,11 +532,46 @@ MUX_ForReadDataAndInmediate
 (
 	.Selector(IDEX_ALUSrc_wire),
 
-	.MUX_Data0(IDEX_ReadData2_wire),
+	.MUX_Data0(MUX_FwdB_Output_wire),
 	.MUX_Data1(IDEX_ImmExtend_wire),
 
 	.MUX_Output(ReadData2OrInmmediate_wire)
 );
+
+/************** 3 to 1 multiplexers**********/
+
+Multiplexer3to1
+#(
+	.NBits(32)
+)
+MUX_ForwardA
+(
+	.Selector(ForwardA_wire),
+	.MUX_Data0(IDEX_ReadData1_wire),
+	.MUX_Data1(DATA_PC4Output_wire),
+	.MUX_Data2(EXMEM_ALUResult_wire),
+	
+	.MUX_Output(MUX_FwdA_Output_wire)
+
+);
+
+Multiplexer3to1
+#(
+	.NBits(32)
+)
+MUX_ForwardB
+(
+	.Selector(ForwardB_wire),
+	.MUX_Data0(IDEX_ReadData2_wire),
+	.MUX_Data1(DATA_PC4Output_wire),
+	.MUX_Data2(EXMEM_ALUResult_wire),
+	
+	.MUX_Output(MUX_FwdB_Output_wire)
+
+);
+
+
+
 
 //////////////// REGISTER FILE ////////////////////////////////////
 
@@ -591,7 +634,7 @@ ALU
 ArithmeticLogicUnit 
 (
 	.ALUOperation(ALUOperation_wire),
-	.A(IDEX_ReadData1_wire),
+	.A(MUX_FwdA_Output_wire),
 	.B(ReadData2OrInmmediate_wire),
 
 	.Zero(Zero_wire),
@@ -599,6 +642,25 @@ ArithmeticLogicUnit
 	.ALUResult(ALUResult_wire),
 
 	.shamt(Instruction_wire[10:6])
+);
+
+//////////////////////// FWDING UNIT /////////////////////
+
+ForwardingUnit
+
+fwdUnit
+(
+	.IDEX_RegisterRs(IDEX_Instruction_wire[25:21]),
+	.IDEX_RegisterRt(IDEX_Instruction_wire[20:16]),
+	
+	.EXMEM_RegWrite(EXMEM_RegWrite_wire),
+	.EXMEM_RegisterRd(EXMEM_WriteRegister_wire),
+	
+	.MEMWB_RegWrite(MEMWB_RegWrite_wire),
+	.MEMWB_RegisterRd(MEMWB_WriteRegister_wire),
+	
+	.ForwardA(ForwardA_wire),
+	.ForwardB(ForwardB_wire)
 );
 
 //////////////////////// RAM ////////////////////////////
@@ -611,7 +673,7 @@ DataMemory
 
 RAM
 (
-	.WriteData(EXMEM_ReadData2_wire),
+	.WriteData(MUX_FwdB_Output_wire),
 	.Address(RAM_Addr_wire),
 	.MemWrite(EXMEM_MemWrite_wire),
 	.MemRead(EXMEM_MemRead_wire),

@@ -1,14 +1,4 @@
 module ForwardingUnit
-/*#(
-	IDEX_RegisterRs,
-	IDEX_RegisterRt,
-	EXMEM_RegWrite,
-	EXMEM_RegisterRd,
-	MEMWB_RegWrite,
-   MEMWB_RegisterRd,
-	ForwardA,
-	ForwardB
-)*/
 
 (
 	input  [4:0]IDEX_RegisterRs,
@@ -23,6 +13,7 @@ module ForwardingUnit
 	output reg [1:0]ForwardA,
 	output reg [1:0]ForwardB
 );
+
 
 always@(EXMEM_RegWrite or EXMEM_RegisterRd or IDEX_RegisterRs or MEMWB_RegWrite or MEMWB_RegisterRd)
 begin
